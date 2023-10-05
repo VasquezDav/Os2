@@ -5,7 +5,8 @@
 int
 main(int argc, char *argv[])
 {
-    printf("Time :%d ticks \n", uptime());
+   // printf("Time :%d ticksss \n", uptime());
+    
     int rc = fork();
     if (rc < 0) {
         // fork failed; exit
@@ -18,7 +19,7 @@ main(int argc, char *argv[])
         printf("exec did not work \n");
     } else {
         wait(0); 
-        printf("elapsed time %d:%d\n",uptime());
+        printf("elapsed time: %d ticks\n",uptime());
     }
     exit(0);
 }
