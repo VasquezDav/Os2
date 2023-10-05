@@ -5,6 +5,7 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "pstat.h"
 
 struct cpu cpus[NCPU];
 
@@ -105,6 +106,7 @@ static struct proc*
 allocproc(void)
 {
   struct proc *p;
+  
 
   for(p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
@@ -119,7 +121,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
-
+  p->cputime = 0;
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -427,6 +429,56 @@ wait(uint64 addr)
   }
 }
 
+int
+wait2(uint64 addr, uint64 addr2)
+{
+  struct proc *np;
+  int havekids, pid;
+  struct proc *p = myproc();
+  struct rusage cru;
+
+  acquire(&wait_lock);
+
+  for(;;){
+    // Scan through table looking for exited children.
+    havekids = 0;
+    for(np = proc; np < &proc[NPROC]; np++){
+      if(np->parent == p){
+        // make sure the child isn't still in exit() or swtch().
+        acquire(&np->lock);
+
+        havekids = 1;
+        if(np->state == ZOMBIE){
+          // Found one.
+          pid = np->pid;
+          cru.cputime = np->cputime;
+          copyout(p->pagetable,addr2,(char *)&cru, sizeof(cru));
+          if(addr != 0 && copyout(p->pagetable, addr, (char *)&np->xstate,
+                                  sizeof(np->xstate)) < 0) {
+            release(&np->lock);
+            release(&wait_lock);
+            return -1;
+          }
+          freeproc(np);
+          release(&np->lock);
+          release(&wait_lock);
+          return pid;
+        }
+        release(&np->lock);
+      }
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || p->killed){
+      release(&wait_lock);
+      return -1;
+    }
+    
+    // Wait for a child to exit.
+    sleep(p, &wait_lock);  //DOC: wait-sleep
+  }
+}
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -654,3 +706,34 @@ procdump(void)
     printf("\n");
   }
 }
+
+// Fill in user-provided array with info for current processes
+// Return the number of processes found
+/*
+int
+procinfo(uint64 addr)
+{
+  struct proc *p;
+  struct proc *thisproc = myproc();
+  struct pstat procinfo;
+  int nprocs = 0;
+  for(p = proc; p < &proc[NPROC]; p++){ 
+    if(p->state == UNUSED)
+      continue;
+    nprocs++;
+    procinfo.pid = p->pid;
+    procinfo.state = p->state;
+    procinfo.size = p->sz;
+    if (p->parent)
+      procinfo.ppid = (p->parent)->pid;
+    else
+      procinfo.ppid = 0;
+    for (int i=0; i<16; i++)
+      procinfo.name[i] = p->name[i];
+   if (copyout(thisproc->pagetable, addr, (char *)&procinfo, sizeof(procinfo)) < 0)
+      return -1;
+    addr += sizeof(procinfo);
+  }
+  return nprocs;
+}
+*/
