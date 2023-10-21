@@ -39,6 +39,19 @@ sys_wait(void)
 }
 
 uint64
+sys_wait2(void)
+{
+  uint64 p1;
+  uint64 p2;
+  if(argaddr(0, &p1) < 0)
+    return -1;
+  if(argaddr(1, &p2) < 0)
+    return -1;
+  
+  return wait2(p1,p2);
+}
+
+uint64
 sys_sbrk(void)
 {
   int addr;
@@ -106,4 +119,19 @@ sys_getprocs(void)
   if (argaddr(0, &addr) < 0)
     return -1;
   return(procinfo(addr));
+}
+// task one implement get_priority
+uint64
+sys_getpriority(void){
+	return myproc()->priority;
+}
+uint64
+sys_setpriority(void){
+	int priority;
+	if(argint(0, &priority)<0)
+		return -1;
+	//if (priority > MAXEFFPRIORITY)
+		//return -1;
+	myproc()->priority = priority;
+		return 0;
 }
