@@ -120,3 +120,18 @@ sys_getprocs(void)
     return -1;
   return(procinfo(addr));
 }
+// task one implement get_priority
+uint64
+sys_getpriority(void){
+	return myproc()->priority;
+}
+uint64
+sys_setpriority(void){
+	int priority;
+	if(argint(0, &priority)<0)
+		return -1;
+	//if (priority > MAXEFFPRIORITY)
+		//return -1;
+	myproc()->priority = priority;
+		return 0;
+}

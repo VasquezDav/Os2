@@ -80,11 +80,8 @@ struct trapframe {
   /* 280 */ uint64 t6;
 };
 
-<<<<<<< HEAD
-=======
-enum procstate {UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE};
+//enum procstate {UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE};
 
->>>>>>> hw2
 // Per-process state
 struct proc {
   struct spinlock lock;
@@ -94,10 +91,15 @@ struct proc {
   void *chan;                  // If non-zero, sleeping on chan
   int killed;                  // If non-zero, have been killed
   int xstate;                  // Exit status to be returned to parent's wait
-  int pid;                     // Process ID
+  int pid;			// Process ID
+  int priority;  			 
+  uint64 cputime;
+  uint64 readytime;                  
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
+  
+
 
   // these are private to the process, so p->lock need not be held.
   uint64 kstack;               // Virtual address of kernel stack
@@ -108,5 +110,5 @@ struct proc {
   struct file *ofile[NOFILE];  // Open files
   struct inode *cwd;           // Current directory
   char name[16]; 	       // Process name (debugging)
-  int cputime;		       // Task2
 };
+extern struct proc proc[NPROC];

@@ -133,16 +133,15 @@ UPROGS=\
 	$U/_wc\
 	$U/_zombie\
 	$U/_sleep\
-<<<<<<< HEAD
 	$U/_ps\
 	$U/_pstree\
 	$U/_pstest\
-=======
 	$U/_uptime\
 	$U/_time1\
 	$U/_matmul\
 	$U/_time\
->>>>>>> hw2
+	$U/_pexec\
+
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
