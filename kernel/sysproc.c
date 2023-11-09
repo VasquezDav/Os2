@@ -38,31 +38,22 @@ sys_wait(void)
   return wait(p);
 }
 
-uint64
-sys_wait2(void)
-{
-  uint64 p1;
-  uint64 p2;
-  if(argaddr(0, &p1) < 0)
-    return -1;
-  if(argaddr(1, &p2) < 0)
-    return -1;
-  
-  return wait2(p1,p2);
-}
-
+//home work4 pt2
 uint64
 sys_sbrk(void)
 {
   int addr;
   int n;
-
-  if(argint(0, &n) < 0)
-    return -1;
+  int new_sz;
+  if(argint(0, &n) <0)
+  	return -1;
   addr = myproc()->sz;
-  if(growproc(n) < 0)
-    return -1;
-  return addr;
+  new_sz = addr + n;
+  if(new_sz < TRAPFRAME){
+    myproc()-> sz = new_sz;
+    return addr;
+  }
+  return -1;
 }
 
 uint64
@@ -120,18 +111,11 @@ sys_getprocs(void)
     return -1;
   return(procinfo(addr));
 }
-// task one implement get_priority
+
+//homework4 pt1
 uint64
-sys_getpriority(void){
-	return myproc()->priority;
+sys_freepmem(void){
+  int res = freepmem();
+  return res;
 }
-uint64
-sys_setpriority(void){
-	int priority;
-	if(argint(0, &priority)<0)
-		return -1;
-	//if (priority > MAXEFFPRIORITY)
-		//return -1;
-	myproc()->priority = priority;
-		return 0;
-}
+

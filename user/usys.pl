@@ -37,6 +37,4 @@ entry("sbrk");
 entry("sleep");
 entry("uptime");
 entry("getprocs");
-entry("wait2");
-entry("setpriority");
-entry("getpriority");
+entry("freepmem");

@@ -136,12 +136,8 @@ UPROGS=\
 	$U/_ps\
 	$U/_pstree\
 	$U/_pstest\
-	$U/_uptime\
-	$U/_time1\
-	$U/_matmul\
-	$U/_time\
-	$U/_pexec\
-
+	$U/_free\
+	$U/_memory-user\
 
 fs.img: mkfs/mkfs README $(UPROGS)
 	mkfs/mkfs fs.img README $(UPROGS)
@@ -163,7 +159,7 @@ QEMUGDB = $(shell if $(QEMU) -help | grep -q '^-gdb'; \
 	then echo "-gdb tcp::$(GDBPORT)"; \
 	else echo "-s -p $(GDBPORT)"; fi)
 ifndef CPUS
-CPUS := 1
+CPUS := 3
 endif
 
 QEMUOPTS = -machine virt -bios none -kernel $K/kernel -m 128M -smp $(CPUS) -nographic

@@ -7,13 +7,11 @@
 #include "pstat.h"
 #include "defs.h"
 
-
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
 
 struct proc *initproc;
-int scheduletype = SCHEDULETYPE;
 
 int nextpid = 1;
 struct spinlock pid_lock;
@@ -108,7 +106,6 @@ static struct proc*
 allocproc(void)
 {
   struct proc *p;
-  
 
   for(p = proc; p < &proc[NPROC]; p++) {
     acquire(&p->lock);
@@ -123,7 +120,7 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
-  p->cputime = 0;
+
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
     freeproc(p);
@@ -246,8 +243,8 @@ userinit(void)
   safestrcpy(p->name, "initcode", sizeof(p->name));
   p->cwd = namei("/");
 
-  p->state =  RUNNABLE;
-  p->readytime = sys_uptime();
+  p->state = RUNNABLE;
+
   release(&p->lock);
 }
 
@@ -317,7 +314,6 @@ fork(void)
 
   acquire(&np->lock);
   np->state = RUNNABLE;
-  p->readytime = sys_uptime();
   release(&np->lock);
 
   return pid;
@@ -432,56 +428,6 @@ wait(uint64 addr)
   }
 }
 
-int
-wait2(uint64 addr, uint64 addr2)
-{
-  struct proc *np;
-  int havekids, pid;
-  struct proc *p = myproc();
-  struct rusage cru;
-
-  acquire(&wait_lock);
-
-  for(;;){
-    // Scan through table looking for exited children.
-    havekids = 0;
-    for(np = proc; np < &proc[NPROC]; np++){
-      if(np->parent == p){
-        // make sure the child isn't still in exit() or swtch().
-        acquire(&np->lock);
-
-        havekids = 1;
-        if(np->state == ZOMBIE){
-          // Found one.
-          pid = np->pid;
-          cru.cputime = np->cputime;
-          copyout(p->pagetable,addr2,(char *)&cru, sizeof(cru));
-          if(addr != 0 && copyout(p->pagetable, addr, (char *)&np->xstate,
-                                  sizeof(np->xstate)) < 0) {
-            release(&np->lock);
-            release(&wait_lock);
-            return -1;
-          }
-          freeproc(np);
-          release(&np->lock);
-          release(&wait_lock);
-          return pid;
-        }
-        release(&np->lock);
-      }
-    }
-
-    // No point waiting if we don't have any children.
-    if(!havekids || p->killed){
-      release(&wait_lock);
-      return -1;
-    }
-    
-    // Wait for a child to exit.
-    sleep(p, &wait_lock);  //DOC: wait-sleep
-  }
-}
-
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -494,56 +440,29 @@ scheduler(void)
 {
   struct proc *p;
   struct cpu *c = mycpu();
-  struct proc *maxproc; 
+  
   c->proc = 0;
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
-    if(scheduletype == 0){
-
-	intr_on();
+    intr_on();
 
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
-        p->state = RUNNING;
-        c->proc = p;
-        swtch(&c->context, &p->context);
-        c->proc = 0;
-      }
-      release(&p->lock);
-    }
-  }else{
-		int maximum_process = 0;
-		maxproc = proc;
-	for(p = proc; p < &proc[NPROC]; p++){
-		acquire(&p->lock);
-		
-		if(p->state == RUNNABLE){
-			int age = sys_uptime() - p->readytime;
-			if(p->priority + (age) > maximum_process){
-				maximum_process = p->priority + (age);
-				maxproc = p;
-			}		
-		}
-			release(&p->lock); 
-	}
-	
-	intr_on();
-	acquire(&maxproc -> lock);
-	if(maxproc->state == RUNNABLE) {
         // Switch to chosen process.  It is the process's job
         // to release its lock and then reacquire it
         // before jumping back to us.
-        maxproc->state = RUNNING;
-        c->proc = maxproc;
-        swtch(&c->context, &maxproc->context);
+        p->state = RUNNING;
+        c->proc = p;
+        swtch(&c->context, &p->context);
+
         // Process is done running for now.
         // It should have changed its p->state before coming back.
         c->proc = 0;
       }
-      release(&maxproc->lock);
+      release(&p->lock);
     }
-}
+  }
 }
 
 // Switch to scheduler.  Must hold only p->lock
@@ -580,7 +499,6 @@ yield(void)
   struct proc *p = myproc();
   acquire(&p->lock);
   p->state = RUNNABLE;
-  p->readytime = sys_uptime();
   sched();
   release(&p->lock);
 }
@@ -649,7 +567,6 @@ wakeup(void *chan)
       acquire(&p->lock);
       if(p->state == SLEEPING && p->chan == chan) {
         p->state = RUNNABLE;
-        p->readytime = sys_uptime();
       }
       release(&p->lock);
     }
@@ -671,7 +588,6 @@ kill(int pid)
       if(p->state == SLEEPING){
         // Wake process from sleep().
         p->state = RUNNABLE;
-        p->readytime = sys_uptime();
       }
       release(&p->lock);
       return 0;
@@ -756,7 +672,6 @@ procinfo(uint64 addr)
     procinfo.pid = p->pid;
     procinfo.state = p->state;
     procinfo.size = p->sz;
-    procinfo.priority = 0;
     if (p->parent)
       procinfo.ppid = (p->parent)->pid;
     else

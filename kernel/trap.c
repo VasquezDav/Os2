@@ -67,6 +67,29 @@ usertrap(void)
     syscall();
   } else if((which_dev = devintr()) != 0){
     // ok
+
+    // HW4 TASK 3 
+  }else if(r_scause() == 13 || r_scause() ==15){
+    //Check if the faulting address is within the virtual memory
+    uint64 faulting_addr = r_stval();
+    if(faulting_addr < p->sz){
+      //Handle the fault by allocating physical memory fram
+      char* physical_frame = kalloc();
+      if(physical_frame == 0){
+        printf("usertrap(): out of memory, pid=%d, faulting_address=%p\n", p->pid, faulting_addr);
+        p->killed =1;
+      }else{
+         //clear page contents
+         memset((void*)physical_frame, 0, PGSIZE);
+
+         //Map virtual page to the newly allocated physical frame
+         mappages(p->pagetable, PGROUNDDOWN(faulting_addr), PGSIZE,(uint64)physical_frame, (PTE_R | PTE_W | PTE_X | PTE_U));
+      }
+    }else{
+        printf("usertrap(): invalid memory access, pid=%d, faulting_address=%p\n", p->pid, faulting_addr);
+        p->killed = 1;
+    } 
+    
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
@@ -77,10 +100,8 @@ usertrap(void)
     exit(-1);
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2){
+  if(which_dev == 2)
     yield();
-    p->cputime++;
-  }
 
   usertrapret();
 }
@@ -152,10 +173,8 @@ kerneltrap()
   }
 
   // give up the CPU if this is a timer interrupt.
-  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING){
+  if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING)
     yield();
-    myproc()->cputime++;
-   }
 
   // the yield() may have caused some traps to occur,
   // so restore trap registers for use by kernelvec.S's sepc instruction.
