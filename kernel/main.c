@@ -43,4 +43,5 @@ main()
 
   scheduler();    
   mmrlistinit();  
+  seminit();
 }

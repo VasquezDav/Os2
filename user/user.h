@@ -29,6 +29,10 @@ uint64 freepmem(void);
 
 void* mmap(void*, int, int,int, int,void*);
 int munmap(void*, int);
+int sem_init(void*, int, int);
+int sem_destroy(void*);
+int sem_wait(void*);
+int sem_post(void*);
 
 
 // ulib.c
