@@ -5,6 +5,8 @@
 #include "spinlock.h"
 #include "proc.h"
 #include "defs.h"
+#include "stat.h"
+
 
 struct spinlock tickslock;
 uint ticks;
@@ -70,25 +72,36 @@ usertrap(void)
 
     // HW4 TASK 3 
   }else if(r_scause() == 13 || r_scause() ==15){
-    //Check if the faulting address is within the virtual memory
-    uint64 faulting_addr = r_stval();
-    if(faulting_addr < p->sz){
-      //Handle the fault by allocating physical memory fram
-      char* physical_frame = kalloc();
-      if(physical_frame == 0){
-        printf("usertrap(): out of memory, pid=%d, faulting_address=%p\n", p->pid, faulting_addr);
-        p->killed =1;
-      }else{
-         //clear page contents
-         memset((void*)physical_frame, 0, PGSIZE);
-
-         //Map virtual page to the newly allocated physical frame
-         mappages(p->pagetable, PGROUNDDOWN(faulting_addr), PGSIZE,(uint64)physical_frame, (PTE_R | PTE_W | PTE_X | PTE_U));
-      }
-    }else{
-        printf("usertrap(): invalid memory access, pid=%d, faulting_address=%p\n", p->pid, faulting_addr);
-        p->killed = 1;
-    } 
+  	//checking if the faulting address (stval register) is valid
+  	if(r_stval() >= p ->sz){
+  		//check if  the mapped region protection permits operation
+  		for(int i=0;i<MAX_MMR; i++){
+  			if(p->mmr[i].valid && p->mmr[i].addr < r_stval() && p->mmr[i].addr+p->mmr[i].length > r_stval()){
+  				if(r_scause() == 13){
+  					//read permission not set
+  					if((p->mmr[i].prot & PROT_READ)==0){
+  						p->killed = 1;
+  						exit(-1);
+  					}
+  				}
+  			}
+  		}
+  	}
+  	void * physical_mem = kalloc();
+  	//ifallocating memory and insert into pagetable
+  	if(physical_mem){
+  		//maps virtual memory was done correctly 
+  		if(mappages(p->pagetable, PGROUNDDOWN(r_stval()), PGSIZE,(uint64)physical_mem,(PTE_R|PTE_W|PTE_X|PTE_U))<0){
+  			kfree(physical_mem);
+  			printf("mappages did not work\n");
+  			p->killed = 1; 
+  			exit(-1);
+  		}
+  	}else{
+  		printf("usertrap(): no more memory\n");
+  		p->killed = 1;
+  		exit(-1);
+  	}
     
   } else {
     printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
